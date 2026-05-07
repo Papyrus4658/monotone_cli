@@ -1,16 +1,20 @@
 package com.example.monotoneCli.cli;
 
+import com.example.monotoneCli.metadata.MetadataReader;
+import com.example.monotoneCli.model.Playlist;
+import com.example.monotoneCli.model.Track;
+import com.example.monotoneCli.player.AudioPlayer;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
-import com.example.monotoneCli.metadata.MetadataReader;
-import com.example.monotoneCli.model.Playlist;
-import com.example.monotoneCli.model.Track;
-import com.example.monotoneCli.player.AudioPlayer;
-
+/**
+ * コマンドラインミュージックプレイヤーの UI 層。
+ * ユーザー入力を解釈して AudioPlayer / Playlist を操作する。
+ */
 public class MusicPlayerCLI {
     // 対応拡張子
     private static final List<String> SUPPORTED_EXT = List.of(
@@ -31,7 +35,7 @@ public class MusicPlayerCLI {
         // 曲が自然に終わったら自動で次の曲へ
         player.setOnFinish(() -> {
             Track next = playlist.next();
-
+            
             if (next != null) {
                 System.out.println("\n>>> 次の曲: " + next.getDisplayTitle());
                 player.play(next);
@@ -44,7 +48,6 @@ public class MusicPlayerCLI {
         // メインループ
         while (true) {
             printPrompt();
-
             String line = scanner.nextLine().trim();
 
             if (line.isEmpty()) {
@@ -74,8 +77,9 @@ public class MusicPlayerCLI {
                     System.out.println("さようなら！");
                     return;
                 }
-                default -> System.out.println("不明なコマンド: " + cmd
-                        + "  (help または h でコマンド一覧を表示)");
+
+                default -> System.out.println(
+                        "不明なコマンド: " + cmd + "  (help または h でコマンド一覧を表示)");
             }
         }
     }
@@ -87,7 +91,7 @@ public class MusicPlayerCLI {
     /** play [ファイル/フォルダパス] */
     private void cmdPlay(String arg) {
         if (!arg.isEmpty()) {
-            // パスが指定されたら先にaddする
+            // パスが指定されたら先に add する
             cmdAdd(arg);
         }
 
@@ -114,8 +118,8 @@ public class MusicPlayerCLI {
             return;
         }
 
-        System.out.println("▶ 再生: " + track.getDisplayTitle() + "  [" + track.getDurationString() + "]");
-
+        System.out.println(
+                "▶ 再生: " + track.getDisplayTitle() + "  [" + track.getDurationString() + "]");
         player.play(track);
     }
 
@@ -125,7 +129,9 @@ public class MusicPlayerCLI {
             System.out.println("再生中ではありません。");
             return;
         }
+
         player.togglePause();
+
         if (player.isPaused()) {
             System.out.println("⏸ ポーズ");
         } else {
@@ -142,24 +148,28 @@ public class MusicPlayerCLI {
     /** next / n */
     private void cmdNext() {
         Track next = playlist.next();
+
         if (next == null) {
             System.out.println("プレイリストが空です。");
             return;
         }
-        System.out.println("⏭ 次の曲: " + next.getDisplayTitle()
-                + "  [" + next.getDurationString() + "]");
+
+        System.out.println(
+                "⏭ 次の曲: " + next.getDisplayTitle() + "  [" + next.getDurationString() + "]");
         player.play(next);
     }
 
     /** prev / b */
     private void cmdPrev() {
         Track prev = playlist.prev();
+
         if (prev == null) {
             System.out.println("プレイリストが空です。");
             return;
         }
-        System.out.println("⏮ 前の曲: " + prev.getDisplayTitle()
-                + "  [" + prev.getDurationString() + "]");
+
+        System.out.println(
+                "⏮ 前の曲: " + prev.getDisplayTitle() + "  [" + prev.getDurationString() + "]");
         player.play(prev);
     }
 
@@ -169,15 +179,18 @@ public class MusicPlayerCLI {
             System.out.println("使い方: jump <番号>  (list で番号を確認)");
             return;
         }
+
         try {
             int idx = Integer.parseInt(arg) - 1; // 表示は 1 始まり
             Track track = playlist.jumpTo(idx);
+
             if (track == null) {
                 System.out.println("番号 " + arg + " は存在しません。");
                 return;
             }
-            System.out.println("▶ ジャンプ: " + track.getDisplayTitle()
-                    + "  [" + track.getDurationString() + "]");
+
+            System.out.println(
+                    "▶ ジャンプ: " + track.getDisplayTitle() + "  [" + track.getDurationString() + "]");
             player.play(track);
         } catch (NumberFormatException e) {
             System.out.println("番号を整数で指定してください。  例: jump 3");
@@ -190,11 +203,14 @@ public class MusicPlayerCLI {
             System.out.println("使い方: add <ファイルまたはフォルダのパス>");
             return;
         }
+
         File f = new File(arg);
+
         if (!f.exists()) {
             System.out.println("見つかりません: " + arg);
             return;
         }
+
         int before = playlist.size();
         addPath(f);
         int added = playlist.size() - before;
@@ -207,21 +223,28 @@ public class MusicPlayerCLI {
             System.out.println("プレイリストは空です。");
             return;
         }
+
         System.out.println();
-        System.out.println("┌─────────────────────────────────────────────────────┐");
-        System.out.printf("│ %-4s %-38s %6s │%n", "No.", "タイトル", "時間");
-        System.out.println("├─────────────────────────────────────────────────────┤");
+        System.out.println(
+                "┌─────────────────────────────────────────────────────┐");
+        System.out.printf(
+                "│ %-4s %-38s %6s │%n", "No.", "タイトル", "時間");
+        System.out.println(
+                "├─────────────────────────────────────────────────────┤");
 
         var tracks = playlist.getTracks();
         int cur = playlist.getCurrentIndex();
+
         for (int i = 0; i < tracks.size(); i++) {
             Track t = tracks.get(i);
             String marker = (i == cur) ? "▶" : " ";
             String title = truncate(t.getDisplayTitle(), 38);
-            System.out.printf("│%s %-3d %-38s %6s │%n",
-                    marker, i + 1, title, t.getDurationString());
+            System.out.printf(
+                    "│%s %-3d %-38s %6s │%n", marker, i + 1, title, t.getDurationString());
         }
-        System.out.println("└─────────────────────────────────────────────────────┘");
+
+        System.out.println(
+                "└─────────────────────────────────────────────────────┘");
     }
 
     /** clear / cl — プレイリストをクリア */
@@ -237,10 +260,14 @@ public class MusicPlayerCLI {
             System.out.printf("現在の音量: %d%%%n", Math.round(player.getVolume() * 100));
             return;
         }
+
         try {
             int pct = Integer.parseInt(arg);
-            if (pct < 0 || pct > 100)
+
+            if (pct < 0 || pct > 100) {
                 throw new NumberFormatException();
+            }
+
             player.setVolume(pct / 100.0f);
             System.out.printf("🔊 音量: %d%%%n", pct);
         } catch (NumberFormatException e) {
@@ -251,10 +278,12 @@ public class MusicPlayerCLI {
     /** info / i — 現在のトラック詳細 */
     private void cmdInfo() {
         Track t = player.getCurrentTrack();
+
         if (t == null || player.isStopped()) {
             System.out.println("再生中のトラックがありません。");
             return;
         }
+
         System.out.println();
         System.out.println("  タイトル : " + t.getTitle());
         System.out.println("  アーティスト: " + t.getArtist());
@@ -272,11 +301,15 @@ public class MusicPlayerCLI {
     private void addPath(File f) {
         if (f.isDirectory()) {
             File[] children = f.listFiles();
-            if (children == null)
+            if (children == null) {
                 return;
+            }
+
             Arrays.sort(children, Comparator.comparing(File::getName));
-            for (File child : children)
+
+            for (File child : children) {
                 addPath(child);
+            }
         } else if (isSupportedFile(f)) {
             Track track = new Track(f.getAbsolutePath());
             MetadataReader.read(track); // メタデータ取得（失敗しても続行）
@@ -290,18 +323,22 @@ public class MusicPlayerCLI {
     }
 
     private String truncate(String s, int maxLen) {
-        if (s == null)
+        if (s == null) {
             return "";
+        }
+
         return s.length() <= maxLen ? s : s.substring(0, maxLen - 1) + "…";
     }
 
+    /** プロンプト（ステータス付き） */
     private void printPrompt() {
         if (!player.isStopped()) {
             Track t = player.getCurrentTrack();
             long elapsed = player.getElapsedSeconds();
             long total = t != null ? t.getDurationSeconds() : 0;
             String state = player.isPaused() ? "⏸" : "▶";
-            System.out.printf("%s [%s / %s] vol:%d%%  > ",
+            System.out.printf(
+                    "%s [%s / %s] vol:%d%%  > ",
                     state,
                     formatTime(elapsed),
                     formatTime(total),
@@ -311,6 +348,7 @@ public class MusicPlayerCLI {
         }
     }
 
+    /** 現在のステータスを1行で表示 */
     private void printStatus() {
         if (player.isStopped()) {
             System.out.println("■ 停止中");
@@ -320,7 +358,8 @@ public class MusicPlayerCLI {
         Track t = player.getCurrentTrack();
         long elapsed = player.getElapsedSeconds();
         String state = player.isPaused() ? "⏸ ポーズ" : "▶ 再生中";
-        System.out.printf("%s: %s  [%s / %s]  vol:%d%%%n",
+        System.out.printf(
+                "%s: %s  [%s / %s]  vol:%d%%%n",
                 state,
                 t != null ? t.getDisplayTitle() : "?",
                 formatTime(elapsed),

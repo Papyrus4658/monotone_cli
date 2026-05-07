@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * 曲のリストと現在位置を管理するプレイリスト
+ */
 public class Playlist {
     private final List<Track> tracks = new ArrayList<>();
     private int currentIndex = -1;
@@ -21,6 +24,7 @@ public class Playlist {
         currentIndex = -1;
     }
 
+    /** 現在のトラックを返す（なければ null） */
     public Track current() {
         if (currentIndex < 0 || currentIndex >= tracks.size()) {
             return null;
@@ -29,30 +33,36 @@ public class Playlist {
         return tracks.get(currentIndex);
     }
 
+    /** 次のトラックに進んで返す（ループ） */
     public Track next() {
         if (tracks.isEmpty()) {
             return null;
         }
 
         currentIndex = (currentIndex + 1) % tracks.size();
+
         return current();
     }
 
+    /** 前のトラックに戻って返す（ループ） */
     public Track prev() {
         if (tracks.isEmpty()) {
             return null;
         }
 
         currentIndex = (currentIndex - 1 + tracks.size()) % tracks.size();
+
         return current();
     }
 
+    /** インデックスを指定して移動 */
     public Track jumpTo(int index) {
         if (index < 0 || index >= tracks.size()) {
             return null;
         }
 
         currentIndex = index;
+
         return current();
     }
 
@@ -64,11 +74,11 @@ public class Playlist {
         return tracks.size();
     }
 
-    public List<Track> getTracks() {
-        return Collections.unmodifiableList(tracks);
-    }
-
     public int getCurrentIndex() {
         return currentIndex;
+    }
+
+    public List<Track> getTracks() {
+        return Collections.unmodifiableList(tracks);
     }
 }

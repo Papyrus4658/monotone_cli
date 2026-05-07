@@ -1,22 +1,26 @@
 package com.example.monotoneCli.player;
 
+import com.example.monotoneCli.model.Track;
+
+import javax.sound.sampled.*;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioSystem;
-import javax.sound.sampled.DataLine;
-import javax.sound.sampled.FloatControl;
-import javax.sound.sampled.LineUnavailableException;
-import javax.sound.sampled.SourceDataLine;
-
-import com.example.monotoneCli.model.Track;
-
+/**
+ * FFmpeg でデコードした PCM データを javax.sound.sampled で再生するプレイヤー。
+ *
+ * 設計:
+ * - decoderThread : FFmpeg の stdout を読み取り audioQueue に積む
+ * - playbackThread: audioQueue から読み取り SourceDataLine に書き込む
+ * - paused フラグで再生スレッドを待機させることでポーズ実現
+ *
+ * 前提: ffmpeg が PATH 上に存在すること
+ */
 public class AudioPlayer {
-    // 出力フォーマット（44100Hz、16bit、ステレオ、リトルエンディアン）
+    // 出力フォーマット (44100Hz, 16bit, ステレオ, リトルエンディアン)
     private static final int SAMPLE_RATE = 44100;
     private static final int CHANNELS = 2;
     private static final int SAMPLE_SIZE_BIT = 16;
@@ -31,25 +35,26 @@ public class AudioPlayer {
     private Thread decoderThread;
     private Thread playbackThread;
 
-    // 状態フラグ（volatileで可視性確保）
+    // 状態フラグ（volatile で可視性確保）
     private volatile boolean stopped = true;
     private volatile boolean paused = false;
-    private volatile float volume = 1.0f; // 0.0 ~ 1.0
+    private volatile float volume = 1.0f; // 0.0 〜 1.0
 
     // 経過時間計測
-    private long playStartTime;
-    private long pausedTotal;
-    private long pauseBegin;
+    private long playStartTime; // 再生開始 (またはポーズ解除) の絶対時刻
+    private long pausedTotal; // これまでのポーズ累計時間 (ms)
+    private long pauseBegin; // 現在のポーズ開始時刻
 
     private Track currentTrack;
-    private Runnable onFinish;
+    private Runnable onFinish; // 再生終了コールバック
 
     // ----------------------------------------------------------------
     // 公開 API
     // ----------------------------------------------------------------
 
+    /** 指定トラックを再生する（既存の再生は停止） */
     public synchronized void play(Track track) {
-        stop();
+        stop(); // 既存スレッドを確実に終了
         currentTrack = track;
         audioQueue.clear();
 
@@ -63,15 +68,12 @@ public class AudioPlayer {
             // pipe:1 : stdout に出力
             ProcessBuilder pb = new ProcessBuilder(
                     "ffmpeg",
-                    "-i",
-                    track.getFilePath(),
+                    "-i", track.getFilePath(),
                     "-vn",
-                    "-f",
-                    "s16le",
+                    "-f", "s16le",
                     "-ar", String.valueOf(SAMPLE_RATE),
                     "-ac", String.valueOf(CHANNELS),
                     "pipe:1");
-
             pb.redirectError(ProcessBuilder.Redirect.DISCARD);
             ffmpegProcess = pb.start();
 
@@ -83,7 +85,7 @@ public class AudioPlayer {
                     CHANNELS,
                     CHANNELS * (SAMPLE_SIZE_BIT / 8),
                     SAMPLE_RATE,
-                    false // little endian
+                    false // little-endian
             );
 
             DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
@@ -98,9 +100,8 @@ public class AudioPlayer {
             playStartTime = System.currentTimeMillis();
             pausedTotal = 0;
 
-            // デコーダースレッド
+            // --- デコーダースレッド ---
             InputStream ffOut = ffmpegProcess.getInputStream();
-
             decoderThread = new Thread(() -> {
                 try {
                     byte[] buf = new byte[CHUNK_SIZE];
@@ -119,7 +120,7 @@ public class AudioPlayer {
                 }
             }, "decoder");
 
-            // 再生スレッド]
+            // --- 再生スレッド ---
             playbackThread = new Thread(() -> {
                 try {
                     while (!stopped) {
@@ -129,12 +130,13 @@ public class AudioPlayer {
                         }
 
                         byte[] chunk = audioQueue.poll(200, TimeUnit.MILLISECONDS);
+
                         if (chunk == null) {
                             continue;
                         }
 
                         if (chunk == SENTINEL) {
-                            break;
+                            break; // 終了マーカー
                         }
 
                         line.write(chunk, 0, chunk.length);
@@ -171,9 +173,7 @@ public class AudioPlayer {
         }
     }
 
-    /**
-     * 一時停止/再生を切り替える
-     */
+    /** 一時停止 / 再開を切り替える */
     public void togglePause() {
         if (stopped) {
             return;
@@ -188,9 +188,7 @@ public class AudioPlayer {
         }
     }
 
-    /**
-     * 再生を停止してリソースを解放する
-     */
+    /** 再生を停止してリソースを解放する */
     public synchronized void stop() {
         stopped = true;
         paused = false;
@@ -211,6 +209,11 @@ public class AudioPlayer {
         }
     }
 
+    /**
+     * 音量を設定する。
+     * 
+     * @param v 0.0（無音）〜 1.0（最大）
+     */
     public void setVolume(float v) {
         volume = Math.max(0.0f, Math.min(1.0f, v));
         applyVolumeToLine();
@@ -220,9 +223,7 @@ public class AudioPlayer {
     // 内部ヘルパー
     // ----------------------------------------------------------------
 
-    /**
-     * SourceDataLine に現在の volume 値を適用する
-     */
+    /** SourceDataLine に現在の volume 値を適用する */
     private void applyVolumeToLine() {
         if (line == null || !line.isOpen()) {
             return;
@@ -239,7 +240,7 @@ public class AudioPlayer {
                 fc.setValue(Math.max(fc.getMinimum(), Math.min(fc.getMaximum(), dB)));
             }
         } catch (IllegalArgumentException | IllegalStateException ignored) {
-            // MASTER_GAIN 非対応のデバイスでは無限
+            // MASTER_GAIN 非対応のデバイスでは無視
         }
     }
 
@@ -247,7 +248,7 @@ public class AudioPlayer {
     // 状態取得
     // ----------------------------------------------------------------
 
-    /** 再生中かどうか */
+    /** 再生中（ポーズでない）かどうか */
     public boolean isPlaying() {
         return !stopped && !paused;
     }
@@ -278,6 +279,7 @@ public class AudioPlayer {
 
         long now = System.currentTimeMillis();
         long elapsed = now - playStartTime - pausedTotal;
+
         if (paused) {
             elapsed -= (now - pauseBegin);
         }

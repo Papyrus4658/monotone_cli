@@ -1,0 +1,6 @@
+com/example/monotoneCli/cli/MusicPlayerCLI.class
+com/example/monotoneCli/player/AudioPlayer.class
+com/example/monotoneCli/metadata/MetadataReader.class
+com/example/monotoneCli/model/Playlist.class
+com/example/monotoneCli/Main.class
+com/example/monotoneCli/model/Track.class

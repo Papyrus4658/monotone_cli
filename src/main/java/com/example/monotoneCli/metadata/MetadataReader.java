@@ -1,22 +1,29 @@
 package com.example.monotoneCli.metadata;
 
-import java.io.File;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
+import com.example.monotoneCli.model.Track;
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
 import org.jaudiotagger.tag.FieldKey;
 import org.jaudiotagger.tag.Tag;
 
-import com.example.monotoneCli.model.Track;
+import java.io.File;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+/**
+ * jaudiotagger を使って音楽ファイルのメタデータ（タグ）を読み取る
+ * 対応フォーマット: FLAC, M4A/AAC, MP3, OGG, WAV, AIFF など
+ */
 public class MetadataReader {
     static {
-        // jaudiotaggerの冗長なログを抑制
+        // jaudiotagger の冗長なログを抑制
         Logger.getLogger("org.jaudiotagger").setLevel(Level.OFF);
     }
 
+    /**
+     * Track オブジェクトにメタデータを書き込む。
+     * 読み取り失敗時はファイル名ベースのデフォルト値を維持する。
+     */
     public static void read(Track track) {
         try {
             AudioFile audioFile = AudioFileIO.read(new File(track.getFilePath()));
@@ -46,6 +53,7 @@ public class MetadataReader {
                     track.setAlbum(album);
                 }
             }
+
         } catch (Exception e) {
             // メタデータ読み取り失敗時はデフォルト値のまま（無視）
         }

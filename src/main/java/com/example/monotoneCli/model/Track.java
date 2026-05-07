@@ -2,6 +2,9 @@ package com.example.monotoneCli.model;
 
 import java.io.File;
 
+/**
+ * 音楽ファイル1曲分の情報を保持するモデル
+ */
 public class Track {
     private final String filePath;
     private String title;
@@ -19,6 +22,7 @@ public class Track {
         this.album = "不明";
     }
 
+    /** プレイリスト表示用の短い文字列 */
     public String getDisplayTitle() {
         if (!"不明".equals(artist)) {
             return artist + " - " + title;
@@ -38,6 +42,8 @@ public class Track {
 
         return String.format("%02d:%02d", m, s);
     }
+
+    // --- getters / setters ---
 
     public String getFilePath() {
         return filePath;

@@ -7,7 +7,7 @@
     <groupId>com.example</groupId>
     <artifactId>monotone-cli</artifactId>
     <version>1.0.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
+    <packaging>jar</packaging>
     <name>Monotone CLI</name>
 
     <properties>
